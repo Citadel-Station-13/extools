@@ -428,20 +428,18 @@ trvh refresh_atmos_grid(unsigned int args_len, Value* args, Value src)
 void initialize_gas_overlays() {
 	Value GLOB = Value::Global().get("GLOB");
 	if (!GLOB) return;
-	Container meta_gas_info = GLOB.get("meta_gas_info");
-	if (!meta_gas_info.type) return;
+	Container meta_gas_visibility = GLOB.get("meta_gas_visibility");
+	Container meta_gas_overlays = GLOB.get("meta_gas_overlays");
+	if (!meta_gas_visibility.type) return;
 	for (int i = 0; i < TOTAL_NUM_GASES; ++i)
 	{
 		Value v = gas_id_to_type[i];
-		Container gas_meta = meta_gas_info.at(v);
-		gas_moles_visible[i] = gas_meta.at(2);
+		gas_moles_visible[i] = meta_gas_visibility.at(v);
 		gas_overlays[i].clear();
-		if (gas_meta.at(3)) {
-			Container gas_overlays_list = gas_meta.at(3);
-			int num_overlays = gas_overlays_list.length();
-			for (int j = 0; j < num_overlays; j++) {
-				gas_overlays[i].push_back(gas_overlays_list[j]);
-			}
+		Container gas_overlays_list = meta_gas_overlays[i];
+		int num_overlays = gas_overlays_list.length();
+		for (int j = 0; j < num_overlays; j++) {
+			gas_overlays[i].push_back(gas_overlays_list[j]);
 		}
 	}
 }
@@ -487,7 +485,6 @@ const char* enable_monstermos()
 	//Set up gas types map
 	std::vector<Value> nullvector = { Value(0.0f) };
 	Container gas_types_list = Core::get_proc("/proc/gas_types").call(nullvector);
-	Container meta_gas_info = Value::Global().get("meta_gas_info");
 	int gaslen = gas_types_list.length();
 	if (gaslen != TOTAL_NUM_GASES) {
 		return "TOTAL_NUM_GASES does not match the number of /datum/gas subtypes!!";
