@@ -123,13 +123,13 @@ void Tile::process_cell(int fire_count) {
 
 		if (should_share_air) {
 			// if youre like not yogs and youre porting this shit and you hate monstermos and you want spacewind just uncomment this shizz
-			/*float difference = */air->share(*enemy_tile.air, adjacent_turfs_length);
-			/*if (difference > 0) {
+			float difference = air->share(*enemy_tile.air, adjacent_turfs_length);
+			if (difference > 0) {
 				turf_ref.invoke_by_id(str_id_consider_pressure_difference, { enemy_tile.turf_ref, difference });
 			}
 			else {
 				enemy_tile.turf_ref.invoke_by_id(str_id_consider_pressure_difference, { turf_ref, -difference });
-			}*/
+			}
 			last_share_check();
 		}
 
