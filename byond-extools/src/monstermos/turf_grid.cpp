@@ -348,14 +348,17 @@ void Tile::equalize_pressure_in_zone(int cyclenum) {
 				adj->monstermos_info = std::make_unique<MonstermosInfo>();
 			}
 			adj->monstermos_info->last_queue_cycle = queue_cycle;
-			turfs.push_back(adj);
-			if (adj->air->is_immutable()) {
+			if (!adj->air->is_immutable()) {
+				turfs.push_back(adj);
+			}
+/*			else {
 				// Uh oh! looks like someone opened an airlock to space! TIME TO SUCK ALL THE AIR OUT!!!
 				// NOT ONE OF YOU IS GONNA SURVIVE THIS
 				// (I just made explosions less laggy, you're welcome)
-				explosively_depressurize(cyclenum);
-				return;
-			}
+				//turfs.push_back(adj);
+				//explosively_depressurize(cyclenum);
+				//return;
+			}*/
 		}
 	}
 	if (turfs.size() > MONSTERMOS_TURF_LIMIT) {
