@@ -436,7 +436,7 @@ void initialize_gas_overlays() {
 		Value v = gas_id_to_type[i];
 		gas_moles_visible[i] = meta_gas_visibility.at(v);
 		gas_overlays[i].clear();
-		Container gas_overlays_list = meta_gas_overlays[i];
+		Container gas_overlays_list = meta_gas_overlays.at(v);
 		int num_overlays = gas_overlays_list.length();
 		for (int j = 0; j < num_overlays; j++) {
 			gas_overlays[i].push_back(gas_overlays_list[j]);
