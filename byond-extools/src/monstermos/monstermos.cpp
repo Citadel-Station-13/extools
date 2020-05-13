@@ -457,6 +457,7 @@ int str_id_x, str_id_y, str_id_z;
 int str_id_current_cycle, str_id_archived_cycle, str_id_planetary_atmos, str_id_initial_gas_mix;
 int str_id_active_turfs;
 int str_id_react, str_id_consider_pressure_difference, str_id_update_visuals, str_id_floor_rip;
+int str_id_monstermos_turf_limit, str_id_monstermos_hard_turf_limit;
 
 const char* enable_monstermos()
 {
@@ -480,6 +481,8 @@ const char* enable_monstermos()
 	str_id_update_visuals = Core::GetStringId("update visuals", true);
 	str_id_floor_rip = Core::GetStringId("handle decompression floor rip", true);
 	str_id_extools_pointer = Core::GetStringId("_extools_pointer_gasmixture", true);
+	str_id_monstermos_turf_limit = Core::GetStringId("monstermos_turf_limit",true);
+	str_id_monstermos_hard_turf_limit = Core::GetStringId("monstermos_turf_limit",true);
 
 	SSair = Value::Global().get("SSair");
 	//Set up gas types map
