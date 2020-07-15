@@ -26,7 +26,10 @@ Value SSair;
 int str_id_extools_pointer;
 int gas_mixture_count = 0;
 float gas_moles_visible[TOTAL_NUM_GASES];
+float gas_fusion_power[TOTAL_NUM_GASES];
 std::vector<Value> gas_overlays[TOTAL_NUM_GASES];
+
+int o2,plasma,tritium,co2,water_vapor,n2o,bz,no2;
 
 std::shared_ptr<GasMixture> &get_gas_mixture(Value val)
 {
@@ -460,12 +463,14 @@ void initialize_gas_overlays() {
 	if (!GLOB) return;
 	Container meta_gas_visibility = GLOB.get("meta_gas_visibility");
 	Container meta_gas_overlays = GLOB.get("meta_gas_overlays");
+	Container meta_gas_fusions = GLOB.get("meta_gas_fusions");
 	if (!meta_gas_visibility.type) return;
 	for (int i = 0; i < TOTAL_NUM_GASES; ++i)
 	{
 		Value v = gas_id_to_type[i];
 		gas_moles_visible[i] = meta_gas_visibility.at(v);
 		gas_overlays[i].clear();
+		gas_fusion_power[i] = meta_gas_fusions.at(v);
 		Container gas_overlays_list = meta_gas_overlays.at(v);
 		int num_overlays = gas_overlays_list.length();
 		for (int j = 0; j < num_overlays; j++) {
@@ -485,6 +490,9 @@ trvh SSair_update_ssair(unsigned int args_len, Value* args, Value src) {
 trvh SSair_update_gas_reactions(unsigned int args_len, Value* args, Value src) {
 	Container gas_reactions = SSair.get("gas_reactions");
 	cached_reactions.clear();
+	cached_reactions.push_back(std::make_shared<PlasmaFire>());
+	cached_reactions.push_back(std::make_shared<TritFire>());
+	cached_reactions.push_back(std::make_shared<Fusion>());
 	for(int i = 0; i < gas_reactions.length(); i++)
 	{
 		cached_reactions.push_back(std::make_shared<ByondReaction>(gas_reactions.at(i)));
@@ -540,8 +548,17 @@ const char* enable_monstermos()
 	for (int i = 0; i < gaslen; ++i)
 	{
 		Value v = gas_types_list.at(i);
-		gas_types[Core::stringify(v)] = gas_types_list.at(i);
+		std::string type_name = Core::stringify(v);
+		gas_types[type_name] = gas_types_list.at(i);
 		gas_ids[v.value] = i;
+		if(type_name == "/datum/gas/oxygen") o2 = i;
+		else if(type_name == "/datum/gas/carbon_dioxide") co2 = i;
+		else if(type_name == "/datum/gas/tritium") tritium = i;
+		else if(type_name == "/datum/gas/plasma") plasma = i;
+		else if(type_name == "/datum/gas/water_vapor") water_vapor = i;
+		else if(type_name == "/datum/gas/nitrous_oxide") n2o = i;
+		else if(type_name == "/datum/gas/nitryl") no2 = i;
+		else if(type_name == "/datum/gas/bz") bz = i;
 		gas_specific_heat[i] = gas_types_list.at(v).valuef;
 		gas_id_to_type.push_back(v);
 	}
