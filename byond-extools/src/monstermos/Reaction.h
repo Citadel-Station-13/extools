@@ -15,9 +15,9 @@ class Reaction
     public:
         virtual bool check_conditions(GasMixture& mix) = 0;
         virtual int react(GasMixture& mix,ManagedValue src,ManagedValue holder) = 0;
-        inline int get_priority() { return priority; }
+        inline float get_priority() { return priority; }
     protected:
-        int priority;
+        float priority;
 };
 
 class ByondReaction : public Reaction
@@ -56,4 +56,31 @@ class ByondReaction : public Reaction
         float min_ener_req = -1.0;
         float min_gas_reqs[TOTAL_NUM_GASES] = {-1.0};
         unsigned int proc_id;
+};
+
+class PlasmaFire : public Reaction
+{
+    public:
+        virtual bool check_conditions(GasMixture& mix);
+        virtual int react(GasMixture& mix,ManagedValue src,ManagedValue holder);
+    protected:
+        int priority = -2;
+};
+
+class TritFire : public Reaction
+{
+    public:
+        virtual bool check_conditions(GasMixture& mix);
+        virtual int react(GasMixture& mix,ManagedValue src,ManagedValue holder);
+    protected:
+        int priority = -1;
+};
+
+class Fusion : public Reaction
+{
+    public:
+        virtual bool check_conditions(GasMixture& mix);
+        virtual int react(GasMixture& mix,ManagedValue src,ManagedValue holder);
+    protected:
+        int priority = 2;
 };
