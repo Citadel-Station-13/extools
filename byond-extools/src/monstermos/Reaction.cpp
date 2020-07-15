@@ -4,8 +4,8 @@ extern int str_id_react;
 
 bool ByondReaction::check_conditions(GasMixture& mix)
 {
-	auto temp = mix.get_temperature();
-	auto ener = mix.thermal_energy();
+    auto temp = mix.get_temperature();
+    auto ener = mix.thermal_energy();
     if(temp < min_temp_req || ener < min_ener_req)
     {
         return false;
