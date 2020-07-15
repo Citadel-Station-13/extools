@@ -2,6 +2,7 @@
 
 #include "../core/core.h"
 #include "GasMixture.h"
+#include "Reaction.h"
 #include "turf_grid.h"
 #include "../dmdism/opcodes.h"
 
@@ -19,6 +20,7 @@ std::unordered_map<std::string, Value> gas_types;
 std::unordered_map<unsigned int, int> gas_ids;
 //std::unordered_map<unsigned int, std::shared_ptr<GasMixture>> gas_mixtures;
 std::vector<Value> gas_id_to_type;
+std::vector<std::shared_ptr<Reaction>> cached_reactions;
 TurfGrid all_turfs;
 Value SSair;
 int str_id_extools_pointer;
@@ -266,6 +268,31 @@ trvh gasmixture_multiply(unsigned int args_len, Value* args, Value src)
 	return Value::Null();
 }
 
+trvh gasmixture_react(unsigned int args_len, Value* args, Value src)
+{
+	GasMixture &src_gas = *get_gas_mixture(src);
+	if(src_gas.total_moles() == 0) return Value((float)NO_REACTION);
+	auto ret = 0;
+	Value holder;
+	if(args_len == 0)
+	{
+		holder = Value();
+	}
+	else
+	{
+		holder = args[0];
+	}
+	IncRefCount(src.type,src.value); // have to do this or the gas mixture will be GC'd at the end of the function
+	IncRefCount(holder.type,holder.value); // i'm assuming this would also end up GC'd--even worse
+	for(int i=0;i<cached_reactions.size();i++)
+	{
+		auto reaction = cached_reactions[i];
+		if(reaction->check_conditions(src_gas)) ret |= cached_reactions[i]->react(src_gas,src,holder);
+		if(ret & STOP_REACTIONS) return Value((float)ret);
+	}
+	return Value((float)ret);
+}
+
 trvh turf_update_adjacent(unsigned int args_len, Value* args, Value src)
 {
 	if (src.type != TURF) { return Value::Null(); }
@@ -453,13 +480,27 @@ trvh SSair_update_ssair(unsigned int args_len, Value* args, Value src) {
 	return Value::Null();
 }
 
+#include <algorithm>
+
+trvh SSair_update_gas_reactions(unsigned int args_len, Value* args, Value src) {
+	Container gas_reactions = SSair.get("gas_reactions");
+	cached_reactions.clear();
+	for(int i = 0; i < gas_reactions.length(); i++)
+	{
+		cached_reactions.push_back(std::make_shared<ByondReaction>(gas_reactions.at(i)));
+	}
+	std::sort(cached_reactions.begin(),cached_reactions.end(),
+	[](std::shared_ptr<Reaction> a, std::shared_ptr<Reaction> b) { return a->get_priority() > b->get_priority(); });
+	return Value::Null();
+}
+
 int str_id_air;
 int str_id_atmosadj;
 int str_id_is_openturf;
 int str_id_x, str_id_y, str_id_z;
 int str_id_current_cycle, str_id_archived_cycle, str_id_planetary_atmos, str_id_initial_gas_mix;
 int str_id_active_turfs;
-int str_id_react, str_id_consider_pressure_difference, str_id_update_visuals, str_id_floor_rip;
+int str_id_react, str_id_gas_reactions, str_id_consider_pressure_difference, str_id_update_visuals, str_id_floor_rip;
 int str_id_monstermos_turf_limit, str_id_monstermos_hard_turf_limit;
 
 const char* enable_monstermos()
@@ -480,6 +521,7 @@ const char* enable_monstermos()
 	str_id_initial_gas_mix = Core::GetStringId("initial_gas_mix", true);
 	str_id_atmos_overlay_types = Core::GetStringId("atmos_overlay_types", true);
 	str_id_react = Core::GetStringId("react", true);
+	str_id_gas_reactions = Core::GetStringId("gas_reactions", true);
 	str_id_consider_pressure_difference = Core::GetStringId("consider pressure difference", true); // byond replaces "_" with " " in proc names. thanks BYOND.
 	str_id_update_visuals = Core::GetStringId("update visuals", true);
 	str_id_floor_rip = Core::GetStringId("handle decompression floor rip", true);
@@ -531,6 +573,7 @@ const char* enable_monstermos()
 	Core::get_proc("/datum/gas_mixture/proc/clear").hook(gasmixture_clear);
 	Core::get_proc("/datum/gas_mixture/proc/multiply").hook(gasmixture_multiply);
 	Core::get_proc("/datum/gas_mixture/proc/get_last_share").hook(gasmixture_get_last_share);
+	Core::get_proc("/datum/gas_mixture/proc/react").hook(gasmixture_react);
 	Core::get_proc("/turf/proc/__update_extools_adjacent_turfs").hook(turf_update_adjacent);
 	Core::get_proc("/turf/proc/update_air_ref").hook(turf_update_air_ref);
 	Core::get_proc("/turf/open/proc/eg_reset_cooldowns").hook(turf_eg_reset_cooldowns);
@@ -544,6 +587,7 @@ const char* enable_monstermos()
 	Core::get_proc("/datum/controller/subsystem/air/proc/process_excited_groups_extools").hook(SSair_process_excited_groups);
 	Core::get_proc("/datum/controller/subsystem/air/proc/get_amt_excited_groups").hook(SSair_get_amt_excited_groups);
 	Core::get_proc("/datum/controller/subsystem/air/proc/extools_update_ssair").hook(SSair_update_ssair);
+	Core::get_proc("/datum/controller/subsystem/air/proc/extools_setup_gas_reactions").hook(SSair_update_gas_reactions);
 
 	all_turfs.refresh();
 	return "ok";
