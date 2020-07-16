@@ -14,7 +14,7 @@ class Reaction
 {
     public:
         virtual bool check_conditions(GasMixture& mix) = 0;
-        virtual int react(GasMixture& mix,ManagedValue src,ManagedValue holder) = 0;
+        virtual int react(GasMixture& mix,Value src,Value holder) = 0;
         inline float get_priority() { return priority; }
     protected:
         float priority;
@@ -24,7 +24,7 @@ class ByondReaction : public Reaction
 {
     public:
         virtual bool check_conditions(GasMixture& mix);
-        virtual int react(GasMixture& mix,ManagedValue src,ManagedValue holder);
+        virtual int react(GasMixture& mix,Value src,Value holder);
         ByondReaction(Value v) {
             List min_reqs = v.get("min_requirements");
             if(min_reqs.at("TEMP").type == DataType::NUMBER) min_temp_req = min_reqs.at("TEMP");
@@ -62,7 +62,7 @@ class PlasmaFire : public Reaction
 {
     public:
         virtual bool check_conditions(GasMixture& mix);
-        virtual int react(GasMixture& mix,ManagedValue src,ManagedValue holder);
+        virtual int react(GasMixture& mix,Value src,Value holder);
     protected:
         int priority = -2;
 };
@@ -71,7 +71,7 @@ class TritFire : public Reaction
 {
     public:
         virtual bool check_conditions(GasMixture& mix);
-        virtual int react(GasMixture& mix,ManagedValue src,ManagedValue holder);
+        virtual int react(GasMixture& mix,Value src,Value holder);
     protected:
         int priority = -1;
 };
@@ -80,7 +80,7 @@ class Fusion : public Reaction
 {
     public:
         virtual bool check_conditions(GasMixture& mix);
-        virtual int react(GasMixture& mix,ManagedValue src,ManagedValue holder);
+        virtual int react(GasMixture& mix,Value src,Value holder);
     protected:
         int priority = 2;
 };

@@ -285,12 +285,14 @@ trvh gasmixture_react(unsigned int args_len, Value* args, Value src)
 	{
 		holder = args[0];
 	}
-	IncRefCount(src.type,src.value); // have to do this or the gas mixture will be GC'd at the end of the function
-	IncRefCount(holder.type,holder.value); // i'm assuming this would also end up GC'd--even worse
 	for(int i=0;i<cached_reactions.size();i++)
 	{
 		auto reaction = cached_reactions[i];
-		if(reaction->check_conditions(src_gas)) ret |= cached_reactions[i]->react(src_gas,src,holder);
+		if(reaction->check_conditions(src_gas)) {
+			IncRefCount(src.type,src.value); // have to do this or the gas mixture will be GC'd at the end of the function
+			IncRefCount(holder.type,holder.value); // i'm assuming this would also end up GC'd--even worse
+			ret |= cached_reactions[i]->react(src_gas,src,holder);
+		}
 		if(ret & STOP_REACTIONS) return Value((float)ret);
 	}
 	return Value((float)ret);

@@ -31,7 +31,7 @@ bool ByondReaction::check_conditions(GasMixture& air)
     return true;
 }
 
-int ByondReaction::react(GasMixture& air,ManagedValue src,ManagedValue holder)
+int ByondReaction::react(GasMixture& air,Value src,Value holder)
 {
     return (int)(float)(Core::get_proc(proc_id).call({src,holder}));
 }
@@ -39,11 +39,11 @@ int ByondReaction::react(GasMixture& air,ManagedValue src,ManagedValue holder)
 bool PlasmaFire::check_conditions(GasMixture& air)
 {
     return air.get_temperature() > PLASMA_MINIMUM_BURN_TEMPERATURE &&
-    air.get_moles(plasma) > GAS_MIN_MOLES &&
-    air.get_moles(o2) > GAS_MIN_MOLES;
+    air.get_moles(plasma) > MINIMUM_MOLE_COUNT &&
+    air.get_moles(o2) > MINIMUM_MOLE_COUNT;
 }
 
-int PlasmaFire::react(GasMixture& air,ManagedValue src,ManagedValue holder)
+int PlasmaFire::react(GasMixture& air,Value src,Value holder)
 {
     bool superSaturation = false;
     float temperature_scale;
@@ -94,7 +94,7 @@ int PlasmaFire::react(GasMixture& air,ManagedValue src,ManagedValue holder)
     {
         air.set_temperature((old_energy+energy_released)/air.heat_capacity());
     }
-    if(holder.type == TURF)
+    if(holder.type == DataType::TURF)
     {
         temperature = air.get_temperature();
         if(temperature > FIRE_MINIMUM_TEMPERATURE_TO_EXIST)
@@ -110,15 +110,15 @@ int PlasmaFire::react(GasMixture& air,ManagedValue src,ManagedValue holder)
 bool TritFire::check_conditions(GasMixture& air)
 {
     return air.get_temperature() > FIRE_MINIMUM_TEMPERATURE_TO_EXIST &&
-    air.get_moles(tritium) > GAS_MIN_MOLES &&
-    air.get_moles(o2) > GAS_MIN_MOLES;
+    air.get_moles(tritium) > MINIMUM_MOLE_COUNT &&
+    air.get_moles(o2) > MINIMUM_MOLE_COUNT;
 }
 
 #include <random>
 
 #include "../core/proc_management.h"
 
-int TritFire::react(GasMixture& air,ManagedValue src,ManagedValue holder)
+int TritFire::react(GasMixture& air,Value src,Value holder)
 {
     float energy_released = 0.0;
     float old_heat_capacity = air.heat_capacity();
@@ -161,7 +161,7 @@ int TritFire::react(GasMixture& air,ManagedValue src,ManagedValue holder)
             air.set_temperature((temperature*old_heat_capacity + energy_released)/new_heat_capacity);
         }
     }
-    if(holder.type == TURF)
+    if(holder.type == DataType::TURF)
     {
         temperature = air.get_temperature();
         if(temperature > FIRE_MINIMUM_TEMPERATURE_TO_EXIST)
@@ -190,7 +190,7 @@ bool Fusion::check_conditions(GasMixture& air)
 
 extern float gas_fusion_power[TOTAL_NUM_GASES];
 
-int Fusion::react(GasMixture& air,ManagedValue src,ManagedValue holder)
+int Fusion::react(GasMixture& air,Value src,Value holder)
 {
     Container analyzer_results = src.get("analyzer_results");
     auto old_heat_capacity = air.heat_capacity();
