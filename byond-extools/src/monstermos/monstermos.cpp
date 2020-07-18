@@ -492,9 +492,6 @@ trvh SSair_update_ssair(unsigned int args_len, Value* args, Value src) {
 trvh SSair_update_gas_reactions(unsigned int args_len, Value* args, Value src) {
 	Container gas_reactions = SSair.get("gas_reactions");
 	cached_reactions.clear();
-	cached_reactions.push_back(std::make_shared<PlasmaFire>());
-	cached_reactions.push_back(std::make_shared<TritFire>());
-	cached_reactions.push_back(std::make_shared<Fusion>());
 	for(int i = 0; i < gas_reactions.length(); i++)
 	{
 		cached_reactions.push_back(std::make_shared<ByondReaction>(gas_reactions.at(i)));

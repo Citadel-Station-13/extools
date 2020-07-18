@@ -35,7 +35,7 @@ int ByondReaction::react(GasMixture& air,Value src,Value holder)
 {
     return (int)(float)(Core::get_proc(proc_id).call({src,holder}));
 }
-
+/*
 bool PlasmaFire::check_conditions(GasMixture& air)
 {
     return air.get_temperature() > PLASMA_MINIMUM_BURN_TEMPERATURE &&
@@ -255,4 +255,4 @@ int Fusion::react(GasMixture& air,Value src,Value holder)
         return REACTING;
     }
     return NO_REACTION;
-}
+}*/
