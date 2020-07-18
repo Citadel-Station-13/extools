@@ -188,7 +188,9 @@ trvh gasmixture_set_temperature(unsigned int args_len, Value* args, Value src)
 	if (std::isnan(vf) || std::isinf(vf)) {
 		Runtime("Attempt to set temperature to NaN or Infinity");
 	} else {
-		get_gas_mixture(src)->set_temperature(vf);
+		GasMixture &src_gas = *get_gas_mixture(src);
+		src_gas.set_temperature(vf);
+		src_gas.set_dirty(true);
 	}
 	return Value::Null();
 }
@@ -212,7 +214,9 @@ trvh gasmixture_set_moles(unsigned int args_len, Value* args, Value src)
 	if (args_len < 2 || args[0].type != DATUM_TYPEPATH)
 		return Value::Null();
 	int index = gas_ids[args[0].value];
-	get_gas_mixture(src)->set_moles(index, args[1].valuef);
+	GasMixture &src_gas = *get_gas_mixture(src);
+	src_gas.set_moles(index, args[1].valuef);
+	src_gas.set_dirty(true);
 	return Value::Null();
 }
 
@@ -274,7 +278,7 @@ trvh gasmixture_multiply(unsigned int args_len, Value* args, Value src)
 trvh gasmixture_react(unsigned int args_len, Value* args, Value src)
 {
 	GasMixture &src_gas = *get_gas_mixture(src);
-	if(src_gas.total_moles() == 0) return Value((float)NO_REACTION);
+	if(src_gas.sleeping()) return Value((float)NO_REACTION);
 	auto ret = 0;
 	Value holder;
 	if(args_len == 0)
@@ -295,6 +299,7 @@ trvh gasmixture_react(unsigned int args_len, Value* args, Value src)
 		}
 		if(ret & STOP_REACTIONS) return Value((float)ret);
 	}
+	src_gas.set_dirty(ret != NO_REACTION);
 	return Value((float)ret);
 }
 

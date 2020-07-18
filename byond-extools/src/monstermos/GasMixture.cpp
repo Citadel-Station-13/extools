@@ -69,6 +69,7 @@ void GasMixture::merge(const GasMixture &giver) {
     for(int i = 0; i < TOTAL_NUM_GASES; i++) {
         moles[i] += giver.moles[i];
     }
+    set_dirty(true);
 }
 
 GasMixture GasMixture::remove(float amount) {
@@ -161,6 +162,14 @@ float GasMixture::share(GasMixture &sharer, int atmos_adjacent_turfs) {
 		float their_moles = sharer.total_moles();;
 		return (temperature_archived*(our_moles + moved_moles) - sharer.temperature_archived*(their_moles - moved_moles)) * R_IDEAL_GAS_EQUATION / volume;
     }
+    if(moved_moles > 0)
+    {
+        sharer.set_dirty(true);
+    }
+    else
+    {
+        set_dirty(true);
+    }
     return 0;
 }
 
@@ -176,6 +185,14 @@ void GasMixture::temperature_share(GasMixture &sharer, float conduction_coeffici
                 temperature = std::max(temperature - heat/self_heat_capacity, TCMB);
             if(!sharer.immutable)
                 sharer.temperature = std::max(sharer.temperature + heat/sharer_heat_capacity, TCMB);
+            if(temperature_delta > 0)
+            {
+                sharer.set_dirty(true);
+            }
+            else
+            {
+                set_dirty(true);
+            }
         }
     }
 }
@@ -202,6 +219,7 @@ int GasMixture::compare(GasMixture &sample) const {
 void GasMixture::clear() {
 	if (immutable) return;
 	memset(moles, 0, sizeof(moles));
+    set_dirty(false);
 }
 
 void GasMixture::multiply(float multiplier) {
@@ -209,4 +227,5 @@ void GasMixture::multiply(float multiplier) {
 	for (int i = 0; i < TOTAL_NUM_GASES; i++) {
 		moles[i] *= multiplier;
 	}
+    set_dirty(true);
 }
