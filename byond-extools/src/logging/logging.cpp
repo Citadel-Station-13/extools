@@ -12,6 +12,10 @@
 
 #include <string>
 
+#include <thread>
+
+#include <condition_variable>
+
 struct FilePayload
 {
     std::string file_name;
