@@ -33,12 +33,13 @@ void extools_log_writer()
     lock.unlock();
     while(!done_writing_files || !file_queue.empty())
     {
-        if(file_queue.empty())
+        if(!done_writing_files && file_queue.empty())
         {
             lock.lock();
             log_cv.wait(lock);
+            lock.unlock();
         }
-        if(lock.owns_lock() || lock.try_lock())
+        if(lock.try_lock())
         {
             auto next = file_queue.front();
             file_queue.pop_front();
@@ -84,9 +85,12 @@ trvh write_log(unsigned int args_len, Value* args, Value src)
 
 trvh finalize_logs(unsigned int args_len,Value* args,Value src)
 {
-    done_writing_files = false;
-    log_cv.notify_all();
-    log_thread.join();
+    if(!done_writing_files)
+    {
+        done_writing_files = true;
+        log_cv.notify_all();
+        log_thread.join();
+    }
     return Value::Null();
 }
 
