@@ -160,6 +160,19 @@ trvh gasmixture_share(unsigned int args_len, Value* args, Value src)
 	return ret;
 }
 
+trvh gasmixture_temperature_share(unsigned int args_len, Value* args, Value src)
+{
+	if(args_len == 2)
+	{
+		return Value(get_gas_mixture(src)->temperature_share(*get_gas_mixture(args[0]), args[1].valuef));
+	}
+	else if(args_len == 4)
+	{
+		return Value(get_gas_mixture(src)->temperature_share(args[1].valuef,args[2].valuef,args[3].valuef));
+	}
+	return Value::Null();
+}
+
 trvh gasmixture_get_last_share(unsigned int args_len, Value* args, Value src)
 {
 	return Value(get_gas_mixture(src)->get_last_share());
@@ -518,6 +531,7 @@ const char* enable_monstermos()
 	Core::get_proc("/datum/gas_mixture/proc/merge").hook(gasmixture_merge);
 	Core::get_proc("/datum/gas_mixture/proc/copy_from").hook(gasmixture_copy_from);
 	Core::get_proc("/datum/gas_mixture/proc/share").hook(gasmixture_share);
+	Core::get_proc("/datum/gas_mixture/proc/temperature_share").hook(gasmixture_temperature_share);
 	Core::get_proc("/datum/gas_mixture/proc/compare").hook(gasmixture_compare);
 	Core::get_proc("/datum/gas_mixture/proc/get_gases").hook(gasmixture_get_gases);
 	Core::get_proc("/datum/gas_mixture/proc/__remove").hook(gasmixture_remove);

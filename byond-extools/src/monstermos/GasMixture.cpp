@@ -164,7 +164,7 @@ float GasMixture::share(GasMixture &sharer, int atmos_adjacent_turfs) {
     return 0;
 }
 
-void GasMixture::temperature_share(GasMixture &sharer, float conduction_coefficient) {
+float GasMixture::temperature_share(GasMixture &sharer, float conduction_coefficient) {
     float temperature_delta = temperature_archived - sharer.temperature_archived;
     if(std::abs(temperature_delta) > MINIMUM_TEMPERATURE_DELTA_TO_CONSIDER) {
         float self_heat_capacity = heat_capacity_archived();
@@ -178,6 +178,23 @@ void GasMixture::temperature_share(GasMixture &sharer, float conduction_coeffici
                 sharer.temperature = std::max(sharer.temperature + heat/sharer_heat_capacity, TCMB);
         }
     }
+    return sharer.temperature;
+}
+
+float GasMixture::temperature_share(float conduction_coefficient,float sharer_temperature,float sharer_heat_capacity)
+{
+    float temperature_delta = temperature_archived - sharer_temperature;
+    if(std::abs(temperature_delta) > MINIMUM_TEMPERATURE_DELTA_TO_CONSIDER) {
+        float self_heat_capacity = heat_capacity_archived();
+
+        if((sharer_heat_capacity > MINIMUM_HEAT_CAPACITY) && (self_heat_capacity > MINIMUM_HEAT_CAPACITY)) {
+            float heat = conduction_coefficient * temperature_delta * (self_heat_capacity*sharer_heat_capacity/(self_heat_capacity+sharer_heat_capacity));
+            if(!immutable)
+                temperature = std::max(temperature - heat/self_heat_capacity, TCMB);
+            sharer_temperature = std::max(sharer_temperature + heat/sharer_heat_capacity, TCMB);
+        }
+    }
+    return sharer_temperature;
 }
 
 int GasMixture::compare(GasMixture &sample) const {
