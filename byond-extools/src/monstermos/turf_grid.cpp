@@ -77,7 +77,7 @@ void Tile::process_cell(int fire_count) {
 		return;
 	}
 	if (turf_ref.get_by_id(str_id_archived_cycle) < fire_count) {
-		archive(fire_count);
+		turf_ref.invoke_by_id(str_id_archive,{});
 	}
 	SetVariable(turf_ref.type, turf_ref.value, str_id_current_cycle, Value(float(fire_count)));
 
@@ -95,7 +95,8 @@ void Tile::process_cell(int fire_count) {
 		Tile& enemy_tile = *adjacent[i];
 		if (!enemy_tile.air) continue; // having no air is bad I think or something.
 		if (fire_count <= enemy_tile.turf_ref.get_by_id(str_id_current_cycle)) continue;
-		enemy_tile.archive(fire_count);
+		enemy_tile.turf_ref.invoke_by_id(str_id_archive,{});
+
 
 		bool should_share_air = false;
 
@@ -149,7 +150,8 @@ void Tile::process_cell(int fire_count) {
 		}
 		turf_ref.get_by_id(str_id_air).invoke_by_id(str_id_react, { turf_ref });
 		turf_ref.invoke_by_id(str_id_update_visuals, {});
-		if ((!excited_group && !(air->get_temperature() > MINIMUM_TEMPERATURE_START_SUPERCONDUCTION && turf_ref.invoke("consider_superconductivity", {Value::True()})))
+		bool considering_superconductivity = air->get_temperature() > MINIMUM_TEMPERATURE_START_SUPERCONDUCTION && turf_ref.invoke("consider_superconductivity", {Value::True()});
+		if ((!excited_group && considering_superconductivity)
 			|| (atmos_cooldown > (EXCITED_GROUP_DISMANTLE_CYCLES * 2))) {
 			SSair.invoke("remove_from_active", { turf_ref });
 		}
@@ -187,15 +189,6 @@ void Tile::last_share_check() {
 	else if (last_share > MINIMUM_MOLES_DELTA_TO_MOVE) {
 		excited_group->dismantle_cooldown = 0;
 		atmos_cooldown = 0;
-	}
-}
-
-void Tile::archive(int fire_count) {
-	if (turf_ref.get_by_id(str_id_is_openturf).valuef) {
-		SetVariable(turf_ref.type, turf_ref.value, str_id_archived_cycle, Value(float(fire_count)));
-	}
-	if (air) {
-		air->archive();
 	}
 }
 

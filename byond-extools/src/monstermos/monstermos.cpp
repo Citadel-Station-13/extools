@@ -468,7 +468,7 @@ trvh SSair_update_ssair(unsigned int args_len, Value* args, Value src) {
 
 int str_id_air;
 int str_id_atmosadj;
-int str_id_is_openturf;
+int str_id_is_openturf, str_id_archive, str_id_times_fired;
 int str_id_x, str_id_y, str_id_z;
 int str_id_current_cycle, str_id_archived_cycle, str_id_planetary_atmos, str_id_initial_gas_mix;
 int str_id_active_turfs;
@@ -499,6 +499,8 @@ const char* enable_monstermos()
 	str_id_extools_pointer = Core::GetStringId("_extools_pointer_gasmixture", true);
 	str_id_monstermos_turf_limit = Core::GetStringId("monstermos_turf_limit",true);
 	str_id_monstermos_hard_turf_limit = Core::GetStringId("monstermos_turf_limit",true);
+	str_id_archive = Core::GetStringId("archive",true);
+	str_id_times_fired = Core::GetStringId("times_fired",true);
 
 	SSair = Value::Global().get("SSair");
 	//Set up gas types map
