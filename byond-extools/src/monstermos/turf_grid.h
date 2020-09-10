@@ -31,7 +31,8 @@ struct Tile
 	unsigned char adjacent_bits = 0;
 	unsigned char atmos_cooldown = 0;
 	bool excited = false;
-	std::shared_ptr<GasMixture> air;
+	GasMixture* air; // raw pointer cause it's in a vector anyway
+	size_t air_index;
 	Value turf_ref; // not managed because turf refcounts are very unimportant and don't matter
 	std::unique_ptr<PlanetAtmosInfo> planet_atmos_info;
 	std::shared_ptr<ExcitedGroup> excited_group; // shared_ptr for an actuall good reason this time.
@@ -86,4 +87,6 @@ private:
 	int maxid = 0;
 };
 
-std::shared_ptr<GasMixture> &get_gas_mixture(Value src);
+GasMixture &get_gas_mixture(Value src);
+
+size_t get_gas_mixture_index(Value val);

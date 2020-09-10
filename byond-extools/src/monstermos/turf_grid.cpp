@@ -52,17 +52,13 @@ break;
 
 void Tile::update_air_ref() {
 	bool isopenturf = turf_ref.get_by_id(str_id_is_openturf).valuef;
+	air = nullptr;
 	if (isopenturf) {
 		Value air_ref = turf_ref.get_by_id(str_id_air);
 		if (air_ref.type == DATUM) {
-			air = get_gas_mixture(air_ref);
+			air = &get_gas_mixture(air_ref);
+			air_index = get_gas_mixture_index(air_ref);
 		}
-		else {
-			air.reset();
-		}
-	}
-	else {
-		air.reset();
 	}
 }
 
@@ -135,26 +131,25 @@ void Tile::process_cell(int fire_count) {
 			}
 			last_share_check();
 		}
-
-		if (has_planetary_atmos) {
-			update_planet_atmos();
-			if (air->compare(planet_atmos_info->last_mix)) {
-				if (!excited_group) {
-					std::shared_ptr<ExcitedGroup> eg = std::make_shared<ExcitedGroup>();
-					eg->initialize();
-					eg->add_turf(*this);
-				}
-				air->share(planet_atmos_info->last_mix, adjacent_turfs_length);
-				last_share_check();
+	}
+	if (has_planetary_atmos) {
+		update_planet_atmos();
+		if (air->compare(planet_atmos_info->last_mix)) {
+			if (!excited_group) {
+				std::shared_ptr<ExcitedGroup> eg = std::make_shared<ExcitedGroup>();
+				eg->initialize();
+				eg->add_turf(*this);
 			}
+			air->share(planet_atmos_info->last_mix, adjacent_turfs_length);
+			last_share_check();
 		}
-		turf_ref.get_by_id(str_id_air).invoke_by_id(str_id_react, { turf_ref });
-		turf_ref.invoke_by_id(str_id_update_visuals, {});
-		bool considering_superconductivity = air->get_temperature() > MINIMUM_TEMPERATURE_START_SUPERCONDUCTION && turf_ref.invoke("consider_superconductivity", {Value::True()});
-		if ((!excited_group && considering_superconductivity)
-			|| (atmos_cooldown > (EXCITED_GROUP_DISMANTLE_CYCLES * 2))) {
-			SSair.invoke("remove_from_active", { turf_ref });
-		}
+	}
+	turf_ref.get_by_id(str_id_air).invoke_by_id(str_id_react, { turf_ref });
+	turf_ref.invoke_by_id(str_id_update_visuals, {});
+	bool considering_superconductivity = air->get_temperature() > MINIMUM_TEMPERATURE_START_SUPERCONDUCTION && turf_ref.invoke("consider_superconductivity", {Value::True()});
+	if ((!excited_group && considering_superconductivity)
+		|| (atmos_cooldown > (EXCITED_GROUP_DISMANTLE_CYCLES * 2))) {
+		SSair.invoke("remove_from_active", { turf_ref });
 	}
 }
 
@@ -162,8 +157,8 @@ void Tile::update_planet_atmos() {
 
 	if (!planet_atmos_info || planet_atmos_info->last_initial != turf_ref.get_by_id(str_id_initial_gas_mix)) {
 		Value air_ref = turf_ref.get_by_id(str_id_air);
-		if (air_ref.type != DATUM || get_gas_mixture(air_ref) != air) {
-			air = get_gas_mixture(air_ref);
+		if (air_ref.type != DATUM || &get_gas_mixture(air_ref) != air) {
+			air = &get_gas_mixture(air_ref);
 			std::string message = (std::string("Air reference in extools doesn't match actual air, or the air is null! Turf ref: ") + std::to_string(turf_ref.value));
 			Runtime((char *)message.c_str()); // ree why doesn't it accept const
 			return;
@@ -822,8 +817,10 @@ void ExcitedGroup::self_breakdown(bool space_is_all_consuming) {
 	}
 	breakdown_cooldown = 0;
 }
+
+void remove_from_active(Tile* tile);
+
 void ExcitedGroup::dismantle(bool unexcite) {
-	Value active_turfs = SSair.get_by_id(str_id_active_turfs);
 	int turf_list_size = turf_list.size();
 	for (int i = 0; i < turf_list_size; i++) {
 		Tile* tile = turf_list[i];
@@ -833,11 +830,9 @@ void ExcitedGroup::dismantle(bool unexcite) {
 		}
 	}
 	if (unexcite) {
-		std::vector<Value> turf_refs;
 		for (int i = 0; i < turf_list_size;  i++) {
-			turf_refs.push_back(turf_list[i]->turf_ref);
+			remove_from_active(turf_list[i]);
 		}
-		active_turfs.invoke("Remove", turf_refs);
 	}
 	turf_list.clear();
 }

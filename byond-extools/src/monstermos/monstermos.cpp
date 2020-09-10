@@ -18,28 +18,46 @@ trvh fuck(unsigned int args_len, Value* args, Value src)
 std::unordered_map<std::string, Value> gas_types;
 std::unordered_map<unsigned int, int> gas_ids;
 //std::unordered_map<unsigned int, std::shared_ptr<GasMixture>> gas_mixtures;
+std::vector<GasMixture> gas_mixtures;
+std::vector<size_t> next_gas_ids;
 std::vector<Value> gas_id_to_type;
 TurfGrid all_turfs;
 Value SSair;
 int str_id_extools_pointer;
+int str_id_times_fired;
 int gas_mixture_count = 0;
+int total_num_gases = 0;
 float gas_moles_visible[TOTAL_NUM_GASES];
 std::vector<Value> gas_overlays[TOTAL_NUM_GASES];
 
-std::shared_ptr<GasMixture> &get_gas_mixture(Value val)
+size_t get_gas_mixture_index(Value val)
 {
-	uint32_t v = val.get_by_id(str_id_extools_pointer).value;
-	if (v == 0) Runtime("Gas mixture has null extools pointer");
-	return *((std::shared_ptr<GasMixture>*)v);
+	return val.get_by_id(str_id_extools_pointer).value;
+}
+
+GasMixture &get_gas_mixture(Value val)
+{
+	uint32_t v = get_gas_mixture_index(val);
+	if (v < 1 || v > gas_mixtures.size()) Runtime("Gas mixture has invalid extools index");
+	return gas_mixtures.at(v-1);
 }
 
 int str_id_volume;
 trvh gasmixture_register(unsigned int args_len, Value* args, Value src)
 {
 	//gas_mixtures[src.value] = std::make_shared<GasMixture>(src.get_by_id(str_id_volume).valuef);
-	std::shared_ptr<GasMixture> *ptr = new std::shared_ptr<GasMixture>;
-	*ptr = std::make_shared<GasMixture>(src.get_by_id(str_id_volume).valuef);
-	SetVariable(src.type, src.value, str_id_extools_pointer, Value(NUMBER, (int)ptr));
+	if(next_gas_ids.empty())
+	{
+		gas_mixtures.emplace_back(src.get_by_id(str_id_volume).valuef);
+		SetVariable(src.type, src.value, str_id_extools_pointer, Value(NUMBER, (int)(gas_mixtures.size())));
+	}
+	else
+	{
+		auto idx = next_gas_ids.back();
+		next_gas_ids.pop_back();
+		gas_mixtures[idx-1] = GasMixture(src.get_by_id(str_id_volume).valuef);
+		SetVariable(src.type, src.value, str_id_extools_pointer, Value(NUMBER, (int)(idx)));
+	}
 	gas_mixture_count++;
 	return Value::Null();
 }
@@ -48,9 +66,7 @@ trvh gasmixture_unregister(unsigned int args_len, Value* args, Value src)
 {
 	uint32_t v = src.get_by_id(str_id_extools_pointer).value;
 	if (v != 0) {
-		std::shared_ptr<GasMixture> *gm = (std::shared_ptr<GasMixture> *)v;
-		delete gm;
-		gas_mixture_count--;
+		next_gas_ids.emplace_back(src.get_by_id(str_id_extools_pointer).value);
 		SetVariable(src.type, src.value, str_id_extools_pointer, Value::Null());
 	}
 	return Value::Null();
@@ -60,18 +76,18 @@ DelDatumPtr oDelDatum;
 void hDelDatum(unsigned int datum_id) {
 	RawDatum *datum = Core::GetDatumPointerById(datum_id);
 	if (datum != nullptr) {
-		std::shared_ptr<GasMixture> *gm = nullptr;
+		int gm = 0;
 		if (datum->len_vars < 10) { // if it has a whole bunch of vars it's probably not a gas mixture. Please don't add a whole bunch of vars to gas mixtures.
 			for (int i = 0; i < datum->len_vars; i++) {
 				if (datum->vars[i].id == str_id_extools_pointer) {
-					gm = (std::shared_ptr<GasMixture> *)datum->vars[i].value.value;
+					gm = datum->vars[i].value.value;
 					datum->vars[i].value = Value::Null();
 					break;
 				}
 			}
 		}
-		if (gm != nullptr) {
-			delete gm;
+		if (gm != 0) {
+			next_gas_ids.emplace_back(gm);
 			gas_mixture_count--;
 		}
 	}
@@ -80,43 +96,43 @@ void hDelDatum(unsigned int datum_id) {
 
 trvh gasmixture_heat_capacity(unsigned int args_len, Value* args, Value src)
 {
-	return Value(get_gas_mixture(src)->heat_capacity());
+	return Value(get_gas_mixture(src).heat_capacity());
 }
 
 trvh gasmixture_set_min_heat_capacity(unsigned int args_len, Value* args, Value src)
 {
-	get_gas_mixture(src)->set_min_heat_capacity(args_len > 0 ? args[0].valuef : 0);
+	get_gas_mixture(src).set_min_heat_capacity(args_len > 0 ? args[0].valuef : 0);
 	return Value::Null();
 }
 
 trvh gasmixture_total_moles(unsigned int args_len, Value* args, Value src)
 {
-	return Value(get_gas_mixture(src)->total_moles());
+	return Value(get_gas_mixture(src).total_moles());
 }
 
 trvh gasmixture_return_pressure(unsigned int args_len, Value* args, Value src)
 {
-	return Value(get_gas_mixture(src)->return_pressure());
+	return Value(get_gas_mixture(src).return_pressure());
 }
 
 trvh gasmixture_return_temperature(unsigned int args_len, Value* args, Value src)
 {
-	return Value(get_gas_mixture(src)->get_temperature());
+	return Value(get_gas_mixture(src).get_temperature());
 }
 
 trvh gasmixture_return_volume(unsigned int args_len, Value* args, Value src)
 {
-	return Value(get_gas_mixture(src)->get_volume());
+	return Value(get_gas_mixture(src).get_volume());
 }
 
 trvh gasmixture_thermal_energy(unsigned int args_len, Value* args, Value src)
 {
-	return Value(get_gas_mixture(src)->thermal_energy());
+	return Value(get_gas_mixture(src).thermal_energy());
 }
 
 trvh gasmixture_archive(unsigned int args_len, Value* args, Value src)
 {
-	get_gas_mixture(src)->archive();
+	get_gas_mixture(src).archive();
 	return Value::Null();
 }
 
@@ -124,7 +140,7 @@ trvh gasmixture_merge(unsigned int args_len, Value* args, Value src)
 {
 	if (args_len < 1)
 		return Value::Null();
-	get_gas_mixture(src)->merge(*get_gas_mixture(args[0]));
+	get_gas_mixture(src).merge(get_gas_mixture(args[0]));
 	return Value::Null();
 }
 
@@ -132,7 +148,7 @@ trvh gasmixture_remove_ratio(unsigned int args_len, Value* args, Value src)
 {
 	if (args_len < 2)
 		return Value::Null();
-	get_gas_mixture(args[0])->copy_from_mutable(get_gas_mixture(src)->remove_ratio(args[1].valuef));
+	get_gas_mixture(args[0]).copy_from_mutable(get_gas_mixture(src).remove_ratio(args[1].valuef));
 	return Value::Null();
 }
 
@@ -140,7 +156,7 @@ trvh gasmixture_remove(unsigned int args_len, Value* args, Value src)
 {
 	if (args_len < 2)
 		return Value::Null();
-	get_gas_mixture(args[0])->copy_from_mutable(get_gas_mixture(src)->remove(args[1].valuef));
+	get_gas_mixture(args[0]).copy_from_mutable(get_gas_mixture(src).remove(args[1].valuef));
 	return Value::Null();
 }
 
@@ -148,7 +164,7 @@ trvh gasmixture_copy_from(unsigned int args_len, Value* args, Value src)
 {
 	if (args_len < 1)
 		return Value::Null();
-	get_gas_mixture(src)->copy_from_mutable(*get_gas_mixture(args[0]));
+	get_gas_mixture(src).copy_from_mutable(get_gas_mixture(args[0]));
 	return Value::Null();
 }
 
@@ -156,7 +172,7 @@ trvh gasmixture_share(unsigned int args_len, Value* args, Value src)
 {
 	if (args_len < 1)
 		return Value::Null();
-	Value ret = Value(get_gas_mixture(src)->share(*get_gas_mixture(args[0]), args_len >= 2 ? args[1].valuef : 4));
+	Value ret = Value(get_gas_mixture(src).share(get_gas_mixture(args[0]), args_len >= 2 ? args[1].valuef : 4));
 	return ret;
 }
 
@@ -164,24 +180,24 @@ trvh gasmixture_temperature_share(unsigned int args_len, Value* args, Value src)
 {
 	if(args_len == 2)
 	{
-		return Value(get_gas_mixture(src)->temperature_share(*get_gas_mixture(args[0]), args[1].valuef));
+		return Value(get_gas_mixture(src).temperature_share(get_gas_mixture(args[0]), args[1].valuef));
 	}
 	else if(args_len == 4)
 	{
-		return Value(get_gas_mixture(src)->temperature_share(args[1].valuef,args[2].valuef,args[3].valuef));
+		return Value(get_gas_mixture(src).temperature_share(args[1].valuef,args[2].valuef,args[3].valuef));
 	}
 	return Value::Null();
 }
 
 trvh gasmixture_get_last_share(unsigned int args_len, Value* args, Value src)
 {
-	return Value(get_gas_mixture(src)->get_last_share());
+	return Value(get_gas_mixture(src).get_last_share());
 }
 
 trvh gasmixture_get_gases(unsigned int args_len, Value* args, Value src)
 {
 	List l(CreateList(0));
-	GasMixture &gm = *get_gas_mixture(src);
+	GasMixture &gm = get_gas_mixture(src);
 	for (int i = 0; i < TOTAL_NUM_GASES; i++) {
 		if (gm.get_moles(i) >= GAS_MIN_MOLES) {
 			l.append(gas_id_to_type[i]);
@@ -196,14 +212,14 @@ trvh gasmixture_set_temperature(unsigned int args_len, Value* args, Value src)
 	if (std::isnan(vf) || std::isinf(vf)) {
 		Runtime("Attempt to set temperature to NaN or Infinity");
 	} else {
-		get_gas_mixture(src)->set_temperature(vf);
+		get_gas_mixture(src).set_temperature(vf);
 	}
 	return Value::Null();
 }
 
 trvh gasmixture_set_volume(unsigned int args_len, Value* args, Value src)
 {
-	get_gas_mixture(src)->set_volume(args_len > 0 ? args[0].valuef : 0);
+	get_gas_mixture(src).set_volume(args_len > 0 ? args[0].valuef : 0);
 	return Value::Null();
 }
 
@@ -212,7 +228,7 @@ trvh gasmixture_get_moles(unsigned int args_len, Value* args, Value src)
 	if (args_len < 1 || args[0].type != DATUM_TYPEPATH)
 		return Value::Null();
 	int index = gas_ids[args[0].value];
-	return Value(get_gas_mixture(src)->get_moles(index));
+	return Value(get_gas_mixture(src).get_moles(index));
 }
 
 trvh gasmixture_set_moles(unsigned int args_len, Value* args, Value src)
@@ -220,7 +236,7 @@ trvh gasmixture_set_moles(unsigned int args_len, Value* args, Value src)
 	if (args_len < 2 || args[0].type != DATUM_TYPEPATH)
 		return Value::Null();
 	int index = gas_ids[args[0].value];
-	get_gas_mixture(src)->set_moles(index, args[1].valuef);
+	get_gas_mixture(src).set_moles(index, args[1].valuef);
 	return Value::Null();
 }
 
@@ -228,8 +244,8 @@ trvh gasmixture_scrub_into(unsigned int args_len, Value* args, Value src)
 {
 	if (args_len < 2)
 		return Value::Null();
-	GasMixture &src_gas = *get_gas_mixture(src);
-	GasMixture &dest_gas = *get_gas_mixture(args[0]);
+	GasMixture &src_gas = get_gas_mixture(src);
+	GasMixture &dest_gas = get_gas_mixture(args[0]);
 	Container gases_to_scrub = args[1];
 	int num_gases = gases_to_scrub.length();
 	GasMixture buffer(CELL_VOLUME);
@@ -248,13 +264,13 @@ trvh gasmixture_scrub_into(unsigned int args_len, Value* args, Value src)
 
 trvh gasmixture_mark_immutable(unsigned int args_len, Value* args, Value src)
 {
-	get_gas_mixture(src)->mark_immutable();
+	get_gas_mixture(src).mark_immutable();
 	return Value::Null();
 }
 
 trvh gasmixture_clear(unsigned int args_len, Value* args, Value src)
 {
-	get_gas_mixture(src)->clear();
+	get_gas_mixture(src).clear();
 	return Value::Null();
 }
 
@@ -262,7 +278,7 @@ trvh gasmixture_compare(unsigned int args_len, Value* args, Value src)
 {
 	if (args_len < 1)
 		return Value::Null();
-	int result = get_gas_mixture(src)->compare(*get_gas_mixture(args[0]));
+	int result = get_gas_mixture(src).compare(get_gas_mixture(args[0]));
 	if (result == -1) {
 		return Value("temp");
 	}
@@ -275,7 +291,7 @@ trvh gasmixture_compare(unsigned int args_len, Value* args, Value src)
 
 trvh gasmixture_multiply(unsigned int args_len, Value* args, Value src)
 {
-	get_gas_mixture(src)->multiply(args_len > 0 ? args[0].valuef : 1);
+	get_gas_mixture(src).multiply(args_len > 0 ? args[0].valuef : 1);
 	return Value::Null();
 }
 
@@ -405,9 +421,40 @@ trvh turf_update_visuals(unsigned int args_len, Value* args, Value src) {
 	return Value::Null();
 }
 
+class Stopwatch {
+	private:
+		bool running;
+		std::chrono::time_point<std::chrono::high_resolution_clock> begin;
+		std::chrono::time_point<std::chrono::high_resolution_clock> end;
+	public:
+		Stopwatch(bool autostart = true) {
+			if(autostart)
+			{
+				start();
+			}
+			else
+			{
+				running = false;
+			}
+		}
+		void start() {
+			begin = std::chrono::high_resolution_clock::now();
+			running = true;
+		}
+		int peek() {
+			if(running) end = std::chrono::high_resolution_clock::now();
+			return std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+		}
+		void stop()
+		{
+			end = std::chrono::high_resolution_clock::now();
+			running = false;
+		}
+};
+
 std::vector<std::weak_ptr<ExcitedGroup>> excited_groups_currentrun;
 trvh SSair_process_excited_groups(unsigned int args_len, Value* args, Value src) {
-	auto start = std::chrono::high_resolution_clock::now();
+	auto checker = Stopwatch();
 	float time_limit = args[1] * 100000.0f;
 
 	if (args_len < 2) { return Value::Null(); }
@@ -424,7 +471,7 @@ trvh SSair_process_excited_groups(unsigned int args_len, Value* args, Value src)
 			eg->self_breakdown();
 		if (eg->dismantle_cooldown >= EXCITED_GROUP_DISMANTLE_CYCLES)
 			eg->dismantle(true);
-		if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() > time_limit) {
+		if (checker.peek() > time_limit) {
 			return Value::True();
 		}
 	}
@@ -433,6 +480,107 @@ trvh SSair_process_excited_groups(unsigned int args_len, Value* args, Value src)
 
 trvh SSair_get_amt_excited_groups(unsigned int args_len, Value* args, Value src) {
 	return Value(excited_groups.size());
+}
+
+#include <unordered_set>
+
+std::unordered_set<Tile*> active_turfs;
+
+std::unordered_set<Tile*>::iterator active_turfs_currentrun_pos = active_turfs.begin();
+
+void add_to_active(Tile* tile)
+{
+	auto prev_bucket_count = active_turfs.bucket_count();
+	active_turfs.insert(tile);
+	if(active_turfs.bucket_count() > prev_bucket_count) //the iterators are invalidated--start over
+	{
+		active_turfs_currentrun_pos = active_turfs.begin();
+	}
+}
+
+void remove_from_active(Tile* tile)
+{
+	if(*active_turfs_currentrun_pos == tile) active_turfs_currentrun_pos++; // this iterator's gonna be invalidated--go to the next one
+	active_turfs.erase(tile);
+}
+
+trvh SSair_clear_active_turfs(unsigned int args_len, Value* args, Value src)
+{
+	active_turfs.clear();
+	active_turfs_currentrun_pos = active_turfs.begin();
+	return Value::Null();
+}
+
+trvh SSair_get_active_turfs(unsigned int args_len, Value* args, Value src)
+{
+	List l(CreateList(0));
+	for(auto t : active_turfs)
+	{
+		l.append(t->turf_ref);
+	}
+	return l;
+}
+
+trvh SSair_get_amt_active_turfs(unsigned int args_len, Value* args, Value src) {
+	return Value(active_turfs.size());
+}
+
+trvh SSair_add_to_active(unsigned args_len,Value* args, Value src)
+{
+	if(args_len < 1 || args[0].type != TURF) return Value::Null();
+	add_to_active(all_turfs.get(args[0].value));
+	return Value::Null();
+}
+
+trvh SSair_remove_from_active(unsigned args_len,Value* args, Value src)
+{
+	if(args_len < 1 || args[0].type != TURF) return Value::Null();
+	remove_from_active(all_turfs.get(args[0].value));
+	return Value::Null();
+}
+
+trvh SSair_process_active_turfs(unsigned args_len,Value* args,Value src)
+{
+	if (args_len < 2) { return Value::Null(); }
+	auto checker = Stopwatch();
+	float time_limit = args[1] * 100000.0f;
+
+	int fire_count = SSair.get_by_id(str_id_times_fired);
+	if (!args[0]) {
+		active_turfs_currentrun_pos = active_turfs.begin();
+	}
+	while(active_turfs_currentrun_pos != active_turfs.end())
+	{
+		auto tile = *active_turfs_currentrun_pos;
+		tile->process_cell(fire_count);
+		active_turfs_currentrun_pos++;
+		if (checker.peek() > time_limit) {
+			return Value::True();
+		}
+	}
+	return Value::False();
+}
+
+trvh SSair_process_equalize_turfs(unsigned args_len,Value* args,Value src)
+{
+	if (args_len < 2) { return Value::Null(); }
+	auto checker = Stopwatch();
+	float time_limit = args[1] * 100000.0f;
+
+	int fire_count = SSair.get_by_id(str_id_times_fired);
+	if (!args[0]) {
+		active_turfs_currentrun_pos = active_turfs.begin();
+	}
+	while(active_turfs_currentrun_pos != active_turfs.end())
+	{
+		auto tile = *active_turfs_currentrun_pos;
+		tile->equalize_pressure_in_zone(fire_count);
+		active_turfs_currentrun_pos++;
+		if (checker.peek() > time_limit) {
+			return Value::True();
+		}
+	}
+	return Value::False();
 }
 
 trvh refresh_atmos_grid(unsigned int args_len, Value* args, Value src)
@@ -468,16 +616,18 @@ trvh SSair_update_ssair(unsigned int args_len, Value* args, Value src) {
 
 int str_id_air;
 int str_id_atmosadj;
-int str_id_is_openturf, str_id_archive, str_id_times_fired;
+int str_id_is_openturf, str_id_archive;
 int str_id_x, str_id_y, str_id_z;
 int str_id_current_cycle, str_id_archived_cycle, str_id_planetary_atmos, str_id_initial_gas_mix;
-int str_id_active_turfs;
 int str_id_react, str_id_consider_pressure_difference, str_id_update_visuals, str_id_floor_rip;
 int str_id_monstermos_turf_limit, str_id_monstermos_hard_turf_limit;
 
 const char* enable_monstermos()
 {
 	oDelDatum = (DelDatumPtr)Core::install_hook((void*)DelDatum, (void*)hDelDatum);
+
+	// if we don't do this, it'll reallocate too often. please do this.
+	gas_mixtures.reserve(100000);
 	// get the var IDs for SANIC SPEED
 	str_id_air = Core::GetStringId("air", true);
 	str_id_atmosadj = Core::GetStringId("atmos_adjacent_turfs", true);
@@ -488,7 +638,6 @@ const char* enable_monstermos()
 	str_id_z = Core::GetStringId("z", true);
 	str_id_current_cycle = Core::GetStringId("current_cycle", true);
 	str_id_archived_cycle = Core::GetStringId("archived_cycle", true);
-	str_id_active_turfs = Core::GetStringId("active_turfs", true);
 	str_id_planetary_atmos = Core::GetStringId("planetary_atmos", true);
 	str_id_initial_gas_mix = Core::GetStringId("initial_gas_mix", true);
 	str_id_atmos_overlay_types = Core::GetStringId("atmos_overlay_types", true);
@@ -506,16 +655,13 @@ const char* enable_monstermos()
 	//Set up gas types map
 	std::vector<Value> nullvector = { Value(0.0f) };
 	Container gas_types_list = Core::get_proc("/proc/gas_types").call(nullvector);
-	int gaslen = gas_types_list.length();
-	if (gaslen != TOTAL_NUM_GASES) {
-		return "TOTAL_NUM_GASES does not match the number of /datum/gas subtypes!!";
-	}
-	for (int i = 0; i < gaslen; ++i)
+	total_num_gases = gas_types_list.length();
+	for (int i = 0; i < total_num_gases; ++i)
 	{
 		Value v = gas_types_list.at(i);
 		gas_types[Core::stringify(v)] = gas_types_list.at(i);
 		gas_ids[v.value] = i;
-		gas_specific_heat[i] = gas_types_list.at(v).valuef;
+		gas_specific_heat.push_back(gas_types_list.at(v).valuef);
 		gas_id_to_type.push_back(v);
 	}
 	initialize_gas_overlays();
@@ -557,8 +703,15 @@ const char* enable_monstermos()
 	Core::get_proc("/turf/open/proc/equalize_pressure_in_zone").hook(turf_eq);
 	Core::get_proc("/turf/open/proc/update_visuals").hook(turf_update_visuals);
 	Core::get_proc("/world/proc/refresh_atmos_grid").hook(refresh_atmos_grid);
+	Core::get_proc("/datum/controller/subsystem/air/proc/process_active_turfs_extools").hook(SSair_process_active_turfs);
+	Core::get_proc("/datum/controller/subsystem/air/proc/process_turf_equalize_extools").hook(SSair_process_equalize_turfs);
 	Core::get_proc("/datum/controller/subsystem/air/proc/process_excited_groups_extools").hook(SSair_process_excited_groups);
+	Core::get_proc("/datum/controller/subsystem/air/proc/get_active_turfs").hook(SSair_get_active_turfs);
+	Core::get_proc("/datum/controller/subsystem/air/proc/clear_active_turfs").hook(SSair_clear_active_turfs);
+	Core::get_proc("/datum/controller/subsystem/air/proc/add_to_active_extools").hook(SSair_add_to_active);
+	Core::get_proc("/datum/controller/subsystem/air/proc/remove_from_active_extools").hook(SSair_remove_from_active);
 	Core::get_proc("/datum/controller/subsystem/air/proc/get_amt_excited_groups").hook(SSair_get_amt_excited_groups);
+	Core::get_proc("/datum/controller/subsystem/air/proc/get_amt_active_turfs").hook(SSair_get_amt_active_turfs);
 	Core::get_proc("/datum/controller/subsystem/air/proc/extools_update_ssair").hook(SSair_update_ssair);
 
 	all_turfs.refresh();

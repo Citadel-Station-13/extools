@@ -75,6 +75,10 @@
         "xutility": "cpp",
         "typeindex": "cpp",
         "unordered_set": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "execution": "cpp",
+        "future": "cpp",
+        "queue": "cpp",
+        "set": "cpp"
     }
 }
