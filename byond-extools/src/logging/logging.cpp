@@ -39,7 +39,7 @@ void extools_log_writer()
             log_cv.wait(lock);
             lock.unlock();
         }
-        if(lock.try_lock())
+        if(!file_queue.empty() && lock.try_lock())
         {
             auto next = file_queue.front();
             file_queue.pop_front();
