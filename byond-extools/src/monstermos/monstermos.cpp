@@ -8,6 +8,8 @@
 #include <cmath>
 #include <chrono>
 
+#include <algorithm>
+
 using namespace monstermos::constants;
 
 trvh fuck(unsigned int args_len, Value* args, Value src)
@@ -25,21 +27,25 @@ TurfGrid all_turfs;
 Value SSair;
 int str_id_extools_pointer;
 int str_id_times_fired;
-int gas_mixture_count = 0;
 int total_num_gases = 0;
-float gas_moles_visible[TOTAL_NUM_GASES];
-std::vector<Value> gas_overlays[TOTAL_NUM_GASES];
+size_t max_gases_so_far = 0;
+std::vector<float> gas_moles_visible;
+std::vector < std::vector<Value> > gas_overlays;
 
 size_t get_gas_mixture_index(Value val)
 {
 	return val.get_by_id(str_id_extools_pointer).value;
 }
 
+GasMixture &get_gas_mixture(size_t index)
+{
+	if (index < 1 || index > gas_mixtures.size()) Runtime("Gas mixture has invalid extools index");
+	return gas_mixtures.at(index-1);
+}
+
 GasMixture &get_gas_mixture(Value val)
 {
-	uint32_t v = get_gas_mixture_index(val);
-	if (v < 1 || v > gas_mixtures.size()) Runtime("Gas mixture has invalid extools index");
-	return gas_mixtures.at(v-1);
+	return get_gas_mixture(get_gas_mixture_index(val));
 }
 
 int str_id_volume;
@@ -48,8 +54,14 @@ trvh gasmixture_register(unsigned int args_len, Value* args, Value src)
 	//gas_mixtures[src.value] = std::make_shared<GasMixture>(src.get_by_id(str_id_volume).valuef);
 	if(next_gas_ids.empty())
 	{
+		auto original_capacity = gas_mixtures.capacity();
 		gas_mixtures.emplace_back(src.get_by_id(str_id_volume).valuef);
 		SetVariable(src.type, src.value, str_id_extools_pointer, Value(NUMBER, (int)(gas_mixtures.size())));
+		if(gas_mixtures.capacity() > original_capacity)
+		{
+			all_turfs.refresh();
+		}
+		max_gases_so_far = std::max(gas_mixtures.size(),max_gases_so_far);
 	}
 	else
 	{
@@ -58,7 +70,6 @@ trvh gasmixture_register(unsigned int args_len, Value* args, Value src)
 		gas_mixtures[idx-1] = GasMixture(src.get_by_id(str_id_volume).valuef);
 		SetVariable(src.type, src.value, str_id_extools_pointer, Value(NUMBER, (int)(idx)));
 	}
-	gas_mixture_count++;
 	return Value::Null();
 }
 
@@ -88,7 +99,6 @@ void hDelDatum(unsigned int datum_id) {
 		}
 		if (gm != 0) {
 			next_gas_ids.emplace_back(gm);
-			gas_mixture_count--;
 		}
 	}
 	oDelDatum(datum_id);
@@ -198,7 +208,7 @@ trvh gasmixture_get_gases(unsigned int args_len, Value* args, Value src)
 {
 	List l(CreateList(0));
 	GasMixture &gm = get_gas_mixture(src);
-	for (int i = 0; i < TOTAL_NUM_GASES; i++) {
+	for (int i = 0; i < total_num_gases; i++) {
 		if (gm.get_moles(i) >= GAS_MIN_MOLES) {
 			l.append(gas_id_to_type[i]);
 		}
@@ -388,7 +398,7 @@ trvh turf_update_visuals(unsigned int args_len, Value* args, Value src) {
 	Value old_overlay_types_val = src.get_by_id(str_id_atmos_overlay_types);
 	std::vector<Value> overlay_types;
 
-	for (int i = 0; i < TOTAL_NUM_GASES; i++) {
+	for (int i = 0; i < total_num_gases; i++) {
 		if (!gas_overlays[i].size()) continue;
 		if (gm.get_moles(i) > gas_moles_visible[i]) {
 			// you know whats fun?
@@ -492,7 +502,7 @@ void add_to_active(Tile* tile)
 {
 	auto prev_bucket_count = active_turfs.bucket_count();
 	active_turfs.insert(tile);
-	if(active_turfs.bucket_count() > prev_bucket_count) //the iterators are invalidated--start over
+	if(active_turfs.bucket_count() > prev_bucket_count || active_turfs.size() == 1) //the iterators are invalidated--start over
 	{
 		active_turfs_currentrun_pos = active_turfs.begin();
 	}
@@ -500,6 +510,7 @@ void add_to_active(Tile* tile)
 
 void remove_from_active(Tile* tile)
 {
+	if(active_turfs.empty()) return;
 	if(*active_turfs_currentrun_pos == tile) active_turfs_currentrun_pos++; // this iterator's gonna be invalidated--go to the next one
 	active_turfs.erase(tile);
 }
@@ -525,17 +536,27 @@ trvh SSair_get_amt_active_turfs(unsigned int args_len, Value* args, Value src) {
 	return Value(active_turfs.size());
 }
 
+trvh SSair_get_amt_gas_mixes(unsigned int args_len, Value* args, Value src) {
+	return Value(gas_mixtures.size());
+}
+
+trvh SSair_get_max_gas_mixes(unsigned int args_len, Value* args, Value src) {
+	return Value(max_gases_so_far);
+}
+
 trvh SSair_add_to_active(unsigned args_len,Value* args, Value src)
 {
 	if(args_len < 1 || args[0].type != TURF) return Value::Null();
-	add_to_active(all_turfs.get(args[0].value));
+	auto tile = all_turfs.get(args[0].value);
+	if(tile != nullptr) add_to_active(tile);
 	return Value::Null();
 }
 
 trvh SSair_remove_from_active(unsigned args_len,Value* args, Value src)
 {
 	if(args_len < 1 || args[0].type != TURF) return Value::Null();
-	remove_from_active(all_turfs.get(args[0].value));
+	auto tile = all_turfs.get(args[0].value);
+	if(tile != nullptr) remove_from_active(tile);
 	return Value::Null();
 }
 
@@ -595,7 +616,7 @@ void initialize_gas_overlays() {
 	Container meta_gas_visibility = GLOB.get("meta_gas_visibility");
 	Container meta_gas_overlays = GLOB.get("meta_gas_overlays");
 	if (!meta_gas_visibility.type) return;
-	for (int i = 0; i < TOTAL_NUM_GASES; ++i)
+	for (int i = 0; i < total_num_gases; ++i)
 	{
 		Value v = gas_id_to_type[i];
 		gas_moles_visible[i] = meta_gas_visibility.at(v);
@@ -625,7 +646,8 @@ int str_id_monstermos_turf_limit, str_id_monstermos_hard_turf_limit;
 const char* enable_monstermos()
 {
 	oDelDatum = (DelDatumPtr)Core::install_hook((void*)DelDatum, (void*)hDelDatum);
-
+	gas_mixtures.clear();
+	next_gas_ids.clear();
 	// if we don't do this, it'll reallocate too often. please do this.
 	gas_mixtures.reserve(100000);
 	// get the var IDs for SANIC SPEED
@@ -656,6 +678,8 @@ const char* enable_monstermos()
 	std::vector<Value> nullvector = { Value(0.0f) };
 	Container gas_types_list = Core::get_proc("/proc/gas_types").call(nullvector);
 	total_num_gases = gas_types_list.length();
+	gas_overlays.resize(total_num_gases);
+	gas_moles_visible.resize(total_num_gases);
 	for (int i = 0; i < total_num_gases; ++i)
 	{
 		Value v = gas_types_list.at(i);
@@ -712,8 +736,9 @@ const char* enable_monstermos()
 	Core::get_proc("/datum/controller/subsystem/air/proc/remove_from_active_extools").hook(SSair_remove_from_active);
 	Core::get_proc("/datum/controller/subsystem/air/proc/get_amt_excited_groups").hook(SSair_get_amt_excited_groups);
 	Core::get_proc("/datum/controller/subsystem/air/proc/get_amt_active_turfs").hook(SSair_get_amt_active_turfs);
+	Core::get_proc("/datum/controller/subsystem/air/proc/get_amt_gas_mixes").hook(SSair_get_amt_gas_mixes);
+	Core::get_proc("/datum/controller/subsystem/air/proc/get_max_gas_mixes").hook(SSair_get_max_gas_mixes);
 	Core::get_proc("/datum/controller/subsystem/air/proc/extools_update_ssair").hook(SSair_update_ssair);
-
 	all_turfs.refresh();
 	return "ok";
 }
