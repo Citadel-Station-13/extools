@@ -40,7 +40,7 @@ size_t get_gas_mixture_index(Value val)
 GasMixture &get_gas_mixture(size_t index)
 {
 	if (index < 1 || index > gas_mixtures.size()) Runtime("Gas mixture has invalid extools index");
-	return gas_mixtures.at(index-1);
+	return gas_mixtures[index-1];
 }
 
 GasMixture &get_gas_mixture(Value val)
