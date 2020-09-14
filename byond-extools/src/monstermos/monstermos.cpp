@@ -646,7 +646,7 @@ const char* enable_monstermos()
 	gas_mixtures.clear();
 	next_gas_ids.clear();
 	// if we don't do this, it'll reallocate too often. please do this.
-	gas_mixtures.reserve(100000);
+	gas_mixtures.reserve(200000);
 	// get the var IDs for SANIC SPEED
 	str_id_air = Core::GetStringId("air", true);
 	str_id_atmosadj = Core::GetStringId("atmos_adjacent_turfs", true);
