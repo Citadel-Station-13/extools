@@ -28,7 +28,6 @@ Value SSair;
 int str_id_extools_pointer;
 int str_id_times_fired;
 int total_num_gases = 0;
-size_t max_gases_so_far = 0;
 std::vector<float> gas_moles_visible;
 std::vector < std::vector<Value> > gas_overlays;
 
@@ -47,7 +46,6 @@ GasMixture &get_gas_mixture(Value val)
 {
 	return get_gas_mixture(get_gas_mixture_index(val));
 }
-
 int str_id_volume;
 trvh gasmixture_register(unsigned int args_len, Value* args, Value src)
 {
@@ -61,7 +59,6 @@ trvh gasmixture_register(unsigned int args_len, Value* args, Value src)
 		{
 			all_turfs.refresh();
 		}
-		max_gases_so_far = std::max(gas_mixtures.size(),max_gases_so_far);
 	}
 	else
 	{
@@ -537,11 +534,11 @@ trvh SSair_get_amt_active_turfs(unsigned int args_len, Value* args, Value src) {
 }
 
 trvh SSair_get_amt_gas_mixes(unsigned int args_len, Value* args, Value src) {
-	return Value(gas_mixtures.size());
+	return Value(gas_mixtures.size() - next_gas_ids.size());
 }
 
 trvh SSair_get_max_gas_mixes(unsigned int args_len, Value* args, Value src) {
-	return Value(max_gases_so_far);
+	return Value(gas_mixtures.size());
 }
 
 trvh SSair_add_to_active(unsigned args_len,Value* args, Value src)
