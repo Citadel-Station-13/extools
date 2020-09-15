@@ -1,6 +1,7 @@
 #include "monstermos.h"
 
 #include "../core/core.h"
+#include "Reaction.h"
 #include "GasMixture.h"
 #include "turf_grid.h"
 #include "../dmdism/opcodes.h"
@@ -9,6 +10,8 @@
 #include <chrono>
 
 #include <algorithm>
+
+#include <execution>
 
 using namespace monstermos::constants;
 
@@ -23,6 +26,7 @@ std::unordered_map<unsigned int, int> gas_ids;
 std::vector<GasMixture> gas_mixtures;
 std::vector<size_t> next_gas_ids;
 std::vector<Value> gas_id_to_type;
+std::vector<Reaction> cached_reactions;
 TurfGrid all_turfs;
 Value SSair;
 int str_id_extools_pointer;
@@ -452,6 +456,11 @@ class Stopwatch {
 			if(running) end = std::chrono::high_resolution_clock::now();
 			return std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
 		}
+		int peek_ns() //i couldn't figure out templates fast enough okay
+		{
+			if(running) end = std::chrono::high_resolution_clock::now();
+			return std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();			
+		}
 		void stop()
 		{
 			end = std::chrono::high_resolution_clock::now();
@@ -626,10 +635,71 @@ void initialize_gas_overlays() {
 	}
 }
 
+trvh SSair_update_gas_reactions(unsigned int args_len, Value* args, Value src) {
+	Container gas_reactions = SSair.get("gas_reactions");
+	cached_reactions.reserve(gas_reactions.length());
+	cached_reactions.clear();
+	for(int i = 0; i < gas_reactions.length(); i++)
+	{
+		cached_reactions.emplace_back(gas_reactions.at(i));
+	}
+	std::sort(cached_reactions.begin(),cached_reactions.end(),
+	[](auto& a, auto& b) { return a.get_priority() > b.get_priority(); });
+	return Value::Null();
+}
+
 trvh SSair_update_ssair(unsigned int args_len, Value* args, Value src) {
 	SSair = src;
 	initialize_gas_overlays();
 	return Value::Null();
+}
+
+long long react_check_benchmark = 0;
+
+long long react_total_benchmark = 0;
+
+long reacts_done = 0;
+
+trvh gasmixture_react(unsigned int args_len, Value* args, Value src)
+{
+	GasMixture &src_gas = get_gas_mixture(src);
+	auto ret = 0;
+	Value holder;
+	if(args_len == 0)
+	{
+		holder = Value();
+	}
+	else
+	{
+		holder = args[0];
+	}
+	std::vector<bool> can_react(cached_reactions.size());
+	std::transform(std::execution::seq, //par introduces 2000 ns overhead, so, if this ever gets to be more than 2000 ns...
+		cached_reactions.begin(),cached_reactions.end(),
+		can_react.begin(),
+		[&src_gas](auto& reaction) {
+			return reaction.check_conditions(src_gas);
+		}
+	);
+	for(int i=0;i<cached_reactions.size();i++)
+	{
+		if(can_react[i])
+		{
+			auto &reaction = cached_reactions[i];
+			IncRefCount(src.type,src.value); // have to do this or the gas mixture will be GC'd at the end of the function
+			IncRefCount(holder.type,holder.value); // i'm assuming this would also end up GC'd--even worse
+			ret |= cached_reactions[i].react(src_gas,src,holder);
+		}
+		if(ret & STOP_REACTIONS) return Value((float)ret);
+	}
+	return Value((float)ret);
+}
+
+trvh get_extools_benchmarks(unsigned int args_len, Value* args, Value src)
+{
+	List l(CreateList(0));
+	l.append("No benchmarks active right now.");
+	return l;
 }
 
 int str_id_air;
@@ -714,6 +784,7 @@ const char* enable_monstermos()
 	Core::get_proc("/datum/gas_mixture/proc/clear").hook(gasmixture_clear);
 	Core::get_proc("/datum/gas_mixture/proc/multiply").hook(gasmixture_multiply);
 	Core::get_proc("/datum/gas_mixture/proc/get_last_share").hook(gasmixture_get_last_share);
+	Core::get_proc("/datum/gas_mixture/proc/react").hook(gasmixture_react);
 	Core::get_proc("/turf/proc/__update_extools_adjacent_turfs").hook(turf_update_adjacent);
 	Core::get_proc("/turf/proc/update_air_ref").hook(turf_update_air_ref);
 	Core::get_proc("/turf/open/proc/eg_reset_cooldowns").hook(turf_eg_reset_cooldowns);
@@ -736,6 +807,8 @@ const char* enable_monstermos()
 	Core::get_proc("/datum/controller/subsystem/air/proc/get_amt_gas_mixes").hook(SSair_get_amt_gas_mixes);
 	Core::get_proc("/datum/controller/subsystem/air/proc/get_max_gas_mixes").hook(SSair_get_max_gas_mixes);
 	Core::get_proc("/datum/controller/subsystem/air/proc/extools_update_ssair").hook(SSair_update_ssair);
+	Core::get_proc("/datum/controller/subsystem/air/proc/extools_update_reactions").hook(SSair_update_gas_reactions);
+	Core::get_proc("/proc/get_extools_benchmarks").hook(get_extools_benchmarks);
 	all_turfs.refresh();
 	return "ok";
 }
