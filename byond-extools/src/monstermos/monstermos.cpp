@@ -78,7 +78,7 @@ trvh gasmixture_unregister(unsigned int args_len, Value* args, Value src)
 {
 	uint32_t v = src.get_by_id(str_id_extools_pointer).value;
 	if (v != 0) {
-		next_gas_ids.emplace_back(src.get_by_id(str_id_extools_pointer).value);
+		next_gas_ids.emplace_back(v);
 		SetVariable(src.type, src.value, str_id_extools_pointer, Value::Null());
 	}
 	return Value::Null();
