@@ -654,12 +654,6 @@ trvh SSair_update_ssair(unsigned int args_len, Value* args, Value src) {
 	return Value::Null();
 }
 
-long long react_check_benchmark = 0;
-
-long long react_total_benchmark = 0;
-
-long reacts_done = 0;
-
 trvh gasmixture_react(unsigned int args_len, Value* args, Value src)
 {
 	GasMixture &src_gas = get_gas_mixture(src);
@@ -700,6 +694,26 @@ trvh get_extools_benchmarks(unsigned int args_len, Value* args, Value src)
 	List l(CreateList(0));
 	l.append("No benchmarks active right now.");
 	return l;
+}
+
+trvh SSair_check_all_turfs(unsigned int args_len,Value* args,Value src)
+{
+	auto sw = Stopwatch();
+	std::for_each(std::execution::par_unseq,
+		all_turfs.begin(),
+		all_turfs.end(),
+		[](Tile& tile) {
+			for(int i = 0;i<6;i++)
+			{
+				if (tile.adjacent_bits & (1 << i) && tile.air->compare(*(tile.adjacent[i]->air)) != -2)
+				{
+					add_to_active(&tile);
+					break;
+				}
+			}
+		}
+	);
+	return Value::False();
 }
 
 int str_id_air;
@@ -808,6 +822,7 @@ const char* enable_monstermos()
 	Core::get_proc("/datum/controller/subsystem/air/proc/get_max_gas_mixes").hook(SSair_get_max_gas_mixes);
 	Core::get_proc("/datum/controller/subsystem/air/proc/extools_update_ssair").hook(SSair_update_ssair);
 	Core::get_proc("/datum/controller/subsystem/air/proc/extools_update_reactions").hook(SSair_update_gas_reactions);
+	Core::get_proc("/datum/controller/subsystem/air/proc/scan_for_active_turfs").hook(SSair_check_all_turfs);
 	Core::get_proc("/proc/get_extools_benchmarks").hook(get_extools_benchmarks);
 	all_turfs.refresh();
 	return "ok";
